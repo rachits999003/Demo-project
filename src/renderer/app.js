@@ -218,12 +218,14 @@ async function initializeChat() {
     currentUsername.textContent = state.currentUser.username;
     currentUserAvatar.textContent = state.currentUser.username.charAt(0).toUpperCase();
 
-    // Initialize Socket.io
-    state.socket = io(API_BASE);
+    // Initialize Socket.io with credentials for session sharing
+    state.socket = io(API_BASE, {
+        withCredentials: true
+    });
     
     state.socket.on('connect', () => {
         console.log('Connected to server');
-        state.socket.emit('authenticate', state.currentUser.id);
+        // Session-based authentication, no manual authenticate needed
     });
 
     state.socket.on('private-message', (message) => {

@@ -11,12 +11,26 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+
+// Session configuration
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET || 'electron-chat-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === 'production' }
+});
+
 const io = socketIo(server, {
   cors: {
     origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ["http://localhost:3000"],
     methods: ["GET", "POST"],
     credentials: true
   }
+});
+
+// Share session with Socket.io
+io.use((socket, next) => {
+  sessionMiddleware(socket.request, {}, next);
 });
 
 // Rate limiting configuration
@@ -40,12 +54,7 @@ const apiLimiter = rateLimit({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'electron-chat-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production' }
-}));
+app.use(sessionMiddleware);
 
 // CSRF protection for API endpoints
 const csrfProtection = csrf({ cookie: true });
@@ -177,8 +186,13 @@ app.post('/api/login', authLimiter, csrfProtection, async (req, res) => {
 });
 
 app.post('/api/logout', requireAuth, csrfProtection, (req, res) => {
-  req.session.destroy();
-  res.json({ success: true, message: 'Logged out successfully' });
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Session destruction error:', err);
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+    res.json({ success: true, message: 'Logged out successfully' });
+  });
 });
 
 // Get all users except current user
@@ -234,15 +248,23 @@ const connectedUsers = new Map(); // userId -> socketId
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 
-  // User authentication
-  socket.on('authenticate', (userId) => {
-    connectedUsers.set(userId, socket.id);
-    socket.userId = userId;
-    console.log(`User ${userId} authenticated with socket ${socket.id}`);
+  // Get session from socket
+  const session = socket.request.session;
 
-    // Broadcast updated user list
-    io.emit('user-status-changed');
-  });
+  // Check if user is authenticated via session
+  if (!session || !session.userId) {
+    console.log('Unauthenticated socket connection attempt');
+    socket.disconnect(true);
+    return;
+  }
+
+  // Set authenticated user ID from session
+  socket.userId = session.userId;
+  connectedUsers.set(socket.userId, socket.id);
+  console.log(`User ${socket.userId} connected with socket ${socket.id}`);
+
+  // Broadcast updated user list
+  io.emit('user-status-changed');
 
   // Handle private messages
   socket.on('private-message', async (data) => {
@@ -250,9 +272,20 @@ io.on('connection', (socket) => {
       const { senderId, receiverId, message } = data;
 
       // Validate that the senderId matches the authenticated socket user
-      if (!socket.userId || socket.userId !== senderId) {
+      if (socket.userId !== senderId) {
         console.error(`Authentication mismatch: socket.userId=${socket.userId}, senderId=${senderId}`);
         socket.emit('message-error', { error: 'Authentication error' });
+        return;
+      }
+
+      // Validate receiverId exists
+      const [users] = await pool.execute(
+        'SELECT id FROM users WHERE id = ?',
+        [receiverId]
+      );
+
+      if (users.length === 0) {
+        socket.emit('message-error', { error: 'Invalid receiver' });
         return;
       }
 
@@ -286,6 +319,11 @@ io.on('connection', (socket) => {
 
   // Handle typing indicator
   socket.on('typing', (data) => {
+    // Validate socket is authenticated
+    if (!socket.userId) {
+      return;
+    }
+
     const { receiverId, isTyping } = data;
     const receiverSocketId = connectedUsers.get(receiverId);
     

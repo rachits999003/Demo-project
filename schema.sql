@@ -33,9 +33,5 @@ CREATE INDEX idx_username ON users(username);
 CREATE INDEX idx_email ON users(email);
 CREATE INDEX idx_status ON users(status);
 
--- Insert sample users (passwords are hashed with bcrypt for 'password123')
--- Note: In production, passwords should be hashed using bcrypt
-INSERT INTO users (username, password, email, status) VALUES 
-('admin', '$2b$10$rKzqY9Rq8p9sVvYZ7wYYZe3Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5', 'admin@example.com', 'offline'),
-('testuser', '$2b$10$rKzqY9Rq8p9sVvYZ7wYYZe3Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5', 'test@example.com', 'offline')
-ON DUPLICATE KEY UPDATE username=username;
+-- Sample users can be created through the registration interface
+-- Do not store plain text passwords or invalid hashes in production

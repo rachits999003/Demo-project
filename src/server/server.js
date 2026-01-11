@@ -7,7 +7,6 @@ const session = require('express-session');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
-const path = require('path');
 
 // Validate required environment variables in production
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
@@ -268,9 +267,13 @@ app.get('/api/messages', requireAuth, apiLimiter, async (req, res) => {
        JOIN users s ON m.sender_id = s.id
        JOIN users r ON m.receiver_id = r.id
        WHERE (m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)
-       ORDER BY m.sent_at ASC`,
+       ORDER BY m.sent_at DESC
+       LIMIT 100`,
       [currentUserId, otherUserId, otherUserId, currentUserId]
     );
+
+    // Reverse to show oldest first (limited to last 100 messages)
+    messages.reverse();
 
     res.json({ success: true, messages });
   } catch (error) {

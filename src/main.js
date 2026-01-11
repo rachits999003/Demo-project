@@ -80,6 +80,9 @@ function startServer() {
         };
 
         const req = http.request(options, (res) => {
+          // Accept 200 (success) or 403 (CSRF validation, but server is running)
+          // Status 403 is acceptable because it means the server is responding,
+          // just blocking the request due to missing CSRF token
           if (res.statusCode === 200 || res.statusCode === 403) {
             serverStarted = true;
             resolve();

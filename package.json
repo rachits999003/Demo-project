@@ -9,7 +9,7 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win",
     "dist:all": "electron-builder -mwl",
-    "postinstall": "node -e \"const fs = require('fs'); fs.copyFileSync('node_modules/socket.io-client/dist/socket.io.min.js', 'src/renderer/socket.io.min.js')\""
+    "postinstall": "node scripts/copy-socket-io.js"
   },
   "keywords": [
     "electron",

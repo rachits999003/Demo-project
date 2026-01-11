@@ -8,8 +8,8 @@ const state = {
     csrfToken: null
 };
 
-// API Base URL - configurable via window.API_BASE or defaults to localhost
-const API_BASE = window.API_BASE || 'http://localhost:3000';
+// API Base URL - from electron config or fallback to localhost
+const API_BASE = (window.electron && window.electron.apiBase) || 'http://localhost:3000';
 
 // Initialize CSRF token
 async function initializeCsrfToken() {

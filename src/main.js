@@ -38,10 +38,11 @@ function createWindow() {
 function startServer() {
   return new Promise((resolve, reject) => {
     const serverPath = path.join(__dirname, 'server', 'server.js');
+    const http = require('http');
     
     serverProcess = spawn('node', [serverPath], {
-      stdio: 'inherit',
-      env: { ...process.env }
+      stdio: 'pipe',
+      env: { ...process.env, PORT: process.env.PORT || '3000' }
     });
 
     serverProcess.on('error', (error) => {
@@ -49,10 +50,53 @@ function startServer() {
       reject(error);
     });
 
-    // Give server time to start
+    // Listen for server output to detect when it's ready
+    let serverStarted = false;
+    const serverPort = process.env.PORT || 3000;
+    
+    serverProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      console.log('Server:', output);
+      
+      if (!serverStarted && output.includes('Server running')) {
+        serverStarted = true;
+        resolve();
+      }
+    });
+
+    serverProcess.stderr.on('data', (data) => {
+      console.error('Server error:', data.toString());
+    });
+
+    // Fallback: Check if server is responsive after 3 seconds
     setTimeout(() => {
-      resolve();
-    }, 2000);
+      if (!serverStarted) {
+        const options = {
+          host: 'localhost',
+          port: serverPort,
+          path: '/api/csrf-token',
+          method: 'GET',
+          timeout: 1000
+        };
+
+        const req = http.request(options, (res) => {
+          if (res.statusCode === 200 || res.statusCode === 403) {
+            serverStarted = true;
+            resolve();
+          }
+        });
+
+        req.on('error', () => {
+          // Server not ready yet, but don't reject - it might still be starting
+          if (!serverStarted) {
+            console.warn('Server health check failed, but continuing...');
+            resolve();
+          }
+        });
+
+        req.end();
+      }
+    }, 3000);
   });
 }
 

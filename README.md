@@ -77,12 +77,16 @@ DB_NAME=electron_chat
 SESSION_SECRET=your-random-secret-key-here
 ALLOWED_ORIGINS=http://localhost:3000
 NODE_ENV=development
+PORT=3000
 ```
 
 **Important for Production:**
-- Set a strong, random `SESSION_SECRET`
+- Set a strong, random `SESSION_SECRET` (required in production mode)
 - Configure `ALLOWED_ORIGINS` to specific origins (comma-separated for multiple: `http://localhost:3000,https://app.example.com`)
 - Set `NODE_ENV=production` for production deployment
+- Set `PORT` if using a different port (default: 3000)
+
+**Note:** The application requires Node.js 14.0.0 or higher.
 
 ## Usage
 

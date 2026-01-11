@@ -9,12 +9,24 @@ const csrf = require('csurf');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 
+// Validate required environment variables in production
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  console.error('ERROR: SESSION_SECRET environment variable must be set in production');
+  process.exit(1);
+}
+
 const app = express();
 const server = http.createServer(app);
 
 // Session configuration
+const sessionSecret = process.env.SESSION_SECRET || (() => {
+  const randomSecret = require('crypto').randomBytes(32).toString('hex');
+  console.warn('WARNING: Using randomly generated session secret. Set SESSION_SECRET environment variable for production.');
+  return randomSecret;
+})();
+
 const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET || 'electron-chat-secret-key-change-in-production',
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: { secure: process.env.NODE_ENV === 'production' }
@@ -244,6 +256,26 @@ app.get('/api/messages', requireAuth, apiLimiter, async (req, res) => {
 
 // Socket.io connection handling
 const connectedUsers = new Map(); // userId -> socketId
+const validUserIds = new Set(); // Cache of valid user IDs
+
+// Helper function to validate and cache user IDs
+async function isValidUserId(userId) {
+  if (validUserIds.has(userId)) {
+    return true;
+  }
+  
+  try {
+    const [users] = await pool.execute('SELECT id FROM users WHERE id = ?', [userId]);
+    if (users.length > 0) {
+      validUserIds.add(userId);
+      return true;
+    }
+  } catch (error) {
+    console.error('User validation error:', error);
+  }
+  
+  return false;
+}
 
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
@@ -278,13 +310,10 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Validate receiverId exists
-      const [users] = await pool.execute(
-        'SELECT id FROM users WHERE id = ?',
-        [receiverId]
-      );
-
-      if (users.length === 0) {
+      // Validate receiverId exists (with caching)
+      const isValid = await isValidUserId(receiverId);
+      
+      if (!isValid) {
         socket.emit('message-error', { error: 'Invalid receiver' });
         return;
       }

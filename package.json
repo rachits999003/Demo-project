@@ -9,7 +9,7 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win",
     "dist:all": "electron-builder -mwl",
-    "postinstall": "node -e \"require('fs').cpSync('node_modules/socket.io-client/dist/socket.io.min.js', 'src/renderer/socket.io.min.js')\""
+    "postinstall": "node -e \"const fs = require('fs'); fs.copyFileSync('node_modules/socket.io-client/dist/socket.io.min.js', 'src/renderer/socket.io.min.js')\""
   },
   "keywords": [
     "electron",
@@ -20,6 +20,9 @@
   ],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "devDependencies": {
     "electron": "^27.0.0",
     "electron-builder": "^24.6.4"

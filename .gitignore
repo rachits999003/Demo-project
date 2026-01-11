@@ -13,3 +13,4 @@ release/
 *.exe
 *.dmg
 *.zip
+src/renderer/socket.io.min.js

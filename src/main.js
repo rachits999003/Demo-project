@@ -14,8 +14,7 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false,
-      enableRemoteModule: false
+      nodeIntegration: false
     },
     backgroundColor: '#1a1a1a',
     show: false

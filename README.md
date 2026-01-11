@@ -74,7 +74,15 @@ DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=your_password
 DB_NAME=electron_chat
+SESSION_SECRET=your-random-secret-key-here
+ALLOWED_ORIGINS=http://localhost:*
+NODE_ENV=development
 ```
+
+**Important for Production:**
+- Set a strong, random `SESSION_SECRET`
+- Configure `ALLOWED_ORIGINS` to restrict CORS
+- Set `NODE_ENV=production` for production deployment
 
 ## Usage
 
@@ -176,9 +184,13 @@ electron-chat-app/
 - ✅ Passwords are hashed using bcrypt before storage
 - ✅ SQL injection prevention with parameterized queries
 - ✅ XSS protection with HTML escaping
-- ✅ Session-based authentication
+- ✅ Session-based authentication with configurable secrets
 - ✅ Context isolation in Electron
 - ✅ No direct Node.js access from renderer
+- ✅ CORS configuration for controlled access
+- ✅ Secure cookie settings in production mode
+- ✅ Socket.io bundled locally (no CDN dependencies)
+- ✅ Environment-based configuration for sensitive data
 
 ## Development
 

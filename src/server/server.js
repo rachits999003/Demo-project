@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*",
+    origin: process.env.ALLOWED_ORIGINS || "http://localhost:*",
     methods: ["GET", "POST"]
   }
 });
@@ -19,17 +19,17 @@ const io = socketIo(server, {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
-  secret: 'electron-chat-secret-key-change-in-production',
+  secret: process.env.SESSION_SECRET || 'electron-chat-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false }
+  cookie: { secure: process.env.NODE_ENV === 'production' }
 }));
 
 // Database connection pool
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
+  password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : '',
   database: process.env.DB_NAME || 'electron_chat',
   waitForConnections: true,
   connectionLimit: 10,

@@ -21,7 +21,7 @@
   "author": "",
   "license": "MIT",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=16.0.0"
   },
   "devDependencies": {
     "electron": "^27.0.0",
@@ -35,7 +35,6 @@
     "bcrypt": "^5.1.1",
     "express-session": "^1.17.3",
     "express-rate-limit": "^7.1.5",
-    "csurf": "^1.11.0",
     "cookie-parser": "^1.4.6"
   },
   "build": {

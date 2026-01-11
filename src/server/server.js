@@ -5,7 +5,7 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const rateLimit = require('express-rate-limit');
-const csrf = require('csurf');
+const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 
@@ -20,7 +20,7 @@ const server = http.createServer(app);
 
 // Session configuration
 const sessionSecret = process.env.SESSION_SECRET || (() => {
-  const randomSecret = require('crypto').randomBytes(32).toString('hex');
+  const randomSecret = crypto.randomBytes(32).toString('hex');
   console.warn('WARNING: Using randomly generated session secret. Set SESSION_SECRET environment variable for production.');
   return randomSecret;
 })();
@@ -29,7 +29,11 @@ const sessionMiddleware = session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production' }
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'strict'
+  }
 });
 
 const io = socketIo(server, {
@@ -68,8 +72,26 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(sessionMiddleware);
 
-// CSRF protection for API endpoints
-const csrfProtection = csrf({ cookie: true });
+// Custom CSRF protection using double-submit cookie pattern
+function generateCsrfToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function csrfProtection(req, res, next) {
+  // GET requests don't need CSRF validation
+  if (req.method === 'GET') {
+    return next();
+  }
+
+  const tokenFromHeader = req.headers['csrf-token'] || req.headers['x-csrf-token'];
+  const tokenFromSession = req.session.csrfToken;
+
+  if (!tokenFromHeader || !tokenFromSession || tokenFromHeader !== tokenFromSession) {
+    return res.status(403).json({ error: 'Invalid CSRF token' });
+  }
+
+  next();
+}
 
 // Database connection pool
 const dbConfig = {
@@ -108,8 +130,11 @@ function requireAuth(req, res, next) {
 }
 
 // CSRF token endpoint
-app.get('/api/csrf-token', csrfProtection, (req, res) => {
-  res.json({ csrfToken: req.csrfToken() });
+app.get('/api/csrf-token', (req, res) => {
+  // Generate and store CSRF token in session
+  const token = generateCsrfToken();
+  req.session.csrfToken = token;
+  res.json({ csrfToken: token });
 });
 
 // Authentication endpoints

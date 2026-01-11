@@ -86,7 +86,7 @@ PORT=3000
 - Set `NODE_ENV=production` for production deployment
 - Set `PORT` if using a different port (default: 3000)
 
-**Note:** The application requires Node.js 14.0.0 or higher.
+**Note:** The application requires Node.js 16.0.0 or higher.
 
 ## Usage
 
@@ -189,10 +189,12 @@ electron-chat-app/
 - ✅ SQL injection prevention with parameterized queries
 - ✅ XSS protection with HTML escaping
 - ✅ Session-based authentication with configurable secrets
+- ✅ Modern CSRF protection using double-submit cookie pattern
+- ✅ SameSite cookie attribute for additional CSRF protection
 - ✅ Context isolation in Electron
 - ✅ No direct Node.js access from renderer
 - ✅ CORS configuration for controlled access
-- ✅ Secure cookie settings in production mode
+- ✅ Secure cookie settings in production mode (httpOnly, secure, sameSite)
 - ✅ Socket.io bundled locally (no CDN dependencies)
 - ✅ Environment-based configuration for sensitive data
 

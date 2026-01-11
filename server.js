@@ -4,6 +4,7 @@ const socketIO = require('socket.io');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
+const rateLimit = require('express-rate-limit');
 const { pool, testConnection } = require('./db');
 
 const app = express();
@@ -24,6 +25,26 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Rate limiting configuration
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: 'Too many authentication attempts, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting to all API routes
+app.use('/api/', apiLimiter);
+
 // Store active socket connections
 const activeUsers = new Map(); // userId -> socketId
 const socketUsers = new Map(); // socketId -> userId
@@ -34,7 +55,7 @@ testConnection();
 // API Routes
 
 // Register new user
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authLimiter, async (req, res) => {
   try {
     const { username, password, email } = req.body;
 
@@ -66,7 +87,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Login user
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 

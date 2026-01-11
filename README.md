@@ -134,15 +134,15 @@ Demo-project/
 ## API Endpoints
 
 ### Authentication
-- `POST /api/register` - Register new user
-- `POST /api/login` - Login user
+- `POST /api/register` - Register new user (Rate limited: 5 requests per 15 minutes)
+- `POST /api/login` - Login user (Rate limited: 5 requests per 15 minutes)
 - `POST /api/logout` - Logout user
 
 ### Users
-- `GET /api/users` - Get all users
+- `GET /api/users` - Get all users (Rate limited: 100 requests per 15 minutes)
 
 ### Messages
-- `GET /api/messages/:userId/:otherUserId` - Get chat history between two users
+- `GET /api/messages/:userId/:otherUserId` - Get chat history between two users (Rate limited: 100 requests per 15 minutes)
 
 ### Health Check
 - `GET /health` - Server health check
@@ -165,11 +165,17 @@ Demo-project/
 
 ## Security Features
 
-- ✅ Bcrypt password hashing
-- ✅ SQL injection prevention with parameterized queries
-- ✅ XSS prevention with HTML escaping
-- ✅ CORS configuration
-- ✅ Secure Socket.io connections
+- ✅ **Password Security**: Bcrypt password hashing with salt rounds
+- ✅ **SQL Injection Prevention**: Parameterized queries with mysql2
+- ✅ **XSS Prevention**: HTML escaping in the frontend
+- ✅ **CORS Configuration**: Configurable CORS policy (defaults to localhost)
+- ✅ **Secure Socket.io**: Configured with credentials and restricted origins
+- ✅ **Electron Security**: Context isolation enabled, Node integration disabled
+- ✅ **Rate Limiting**: 
+  - Authentication endpoints: 5 requests per 15 minutes per IP
+  - API endpoints: 100 requests per 15 minutes per IP
+- ✅ **GitHub Actions Security**: Explicit minimal permissions for workflows
+- ✅ **Environment Variables**: Sensitive data stored in .env (not committed)
 
 ## CI/CD
 

@@ -4,10 +4,24 @@ const state = {
     selectedUser: null,
     users: [],
     socket: null,
-    typingTimeout: null
+    typingTimeout: null,
+    csrfToken: null
 };
 
 const API_BASE = 'http://localhost:3000';
+
+// Initialize CSRF token
+async function initializeCsrfToken() {
+    try {
+        const response = await fetch(`${API_BASE}/api/csrf-token`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        state.csrfToken = data.csrfToken;
+    } catch (error) {
+        console.error('Failed to get CSRF token:', error);
+    }
+}
 
 // DOM Elements
 const authContainer = document.getElementById('auth-container');
@@ -31,7 +45,8 @@ const messageInput = document.getElementById('message-input');
 const typingIndicator = document.getElementById('typing-indicator');
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await initializeCsrfToken();
     setupEventListeners();
     showAuthScreen();
 });
@@ -81,7 +96,11 @@ async function handleLogin(e) {
     try {
         const response = await fetch(`${API_BASE}/api/login`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'CSRF-Token': state.csrfToken
+            },
+            credentials: 'include',
             body: JSON.stringify({ username, password })
         });
 
@@ -113,7 +132,11 @@ async function handleRegister(e) {
     try {
         const response = await fetch(`${API_BASE}/api/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'CSRF-Token': state.csrfToken
+            },
+            credentials: 'include',
             body: JSON.stringify({ username, password })
         });
 
@@ -135,7 +158,13 @@ async function handleRegister(e) {
 
 async function handleLogout() {
     try {
-        await fetch(`${API_BASE}/api/logout`, { method: 'POST' });
+        await fetch(`${API_BASE}/api/logout`, { 
+            method: 'POST',
+            headers: {
+                'CSRF-Token': state.csrfToken
+            },
+            credentials: 'include'
+        });
     } catch (error) {
         console.error('Logout error:', error);
     }
@@ -231,7 +260,9 @@ async function initializeChat() {
 // User Management
 async function loadUsers() {
     try {
-        const response = await fetch(`${API_BASE}/api/users?currentUserId=${state.currentUser.id}`);
+        const response = await fetch(`${API_BASE}/api/users?currentUserId=${state.currentUser.id}`, {
+            credentials: 'include'
+        });
         const data = await response.json();
 
         if (data.success) {
@@ -298,7 +329,10 @@ async function selectUser(user) {
 async function loadChatHistory() {
     try {
         const response = await fetch(
-            `${API_BASE}/api/messages?userId1=${state.currentUser.id}&userId2=${state.selectedUser.id}`
+            `${API_BASE}/api/messages?userId1=${state.currentUser.id}&userId2=${state.selectedUser.id}`,
+            {
+                credentials: 'include'
+            }
         );
         const data = await response.json();
 

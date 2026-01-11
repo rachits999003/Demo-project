@@ -4,6 +4,9 @@ const socketIo = require('socket.io');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
+const rateLimit = require('express-rate-limit');
+const csrf = require('csurf');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 
 const app = express();
@@ -15,15 +18,36 @@ const io = socketIo(server, {
   }
 });
 
+// Rate limiting configuration
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: 'Too many authentication attempts, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30, // Limit each IP to 30 requests per windowMs
+  message: 'Too many requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'electron-chat-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
   cookie: { secure: process.env.NODE_ENV === 'production' }
 }));
+
+// CSRF protection for API endpoints
+const csrfProtection = csrf({ cookie: true });
 
 // Database connection pool
 const dbConfig = {
@@ -53,8 +77,13 @@ async function initializeDatabase() {
 // Initialize database connection
 initializeDatabase();
 
+// CSRF token endpoint
+app.get('/api/csrf-token', csrfProtection, (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
+
 // Authentication endpoints
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authLimiter, csrfProtection, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -90,7 +119,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, csrfProtection, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -138,13 +167,13 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.post('/api/logout', (req, res) => {
+app.post('/api/logout', csrfProtection, (req, res) => {
   req.session.destroy();
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // Get all users except current user
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', apiLimiter, async (req, res) => {
   try {
     const currentUserId = req.query.currentUserId;
     
@@ -161,7 +190,7 @@ app.get('/api/users', async (req, res) => {
 });
 
 // Get chat history between two users
-app.get('/api/messages', async (req, res) => {
+app.get('/api/messages', apiLimiter, async (req, res) => {
   try {
     const { userId1, userId2 } = req.query;
 

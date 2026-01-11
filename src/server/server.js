@@ -13,8 +13,9 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.ALLOWED_ORIGINS || "http://localhost:*",
-    methods: ["GET", "POST"]
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ["http://localhost:3000"],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -53,7 +54,7 @@ const csrfProtection = csrf({ cookie: true });
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : '',
+  password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'electron_chat',
   waitForConnections: true,
   connectionLimit: 10,
@@ -76,6 +77,14 @@ async function initializeDatabase() {
 
 // Initialize database connection
 initializeDatabase();
+
+// Authentication middleware
+function requireAuth(req, res, next) {
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  next();
+}
 
 // CSRF token endpoint
 app.get('/api/csrf-token', csrfProtection, (req, res) => {
@@ -167,19 +176,20 @@ app.post('/api/login', authLimiter, csrfProtection, async (req, res) => {
   }
 });
 
-app.post('/api/logout', csrfProtection, (req, res) => {
+app.post('/api/logout', requireAuth, csrfProtection, (req, res) => {
   req.session.destroy();
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // Get all users except current user
-app.get('/api/users', apiLimiter, async (req, res) => {
+app.get('/api/users', requireAuth, apiLimiter, async (req, res) => {
   try {
-    const currentUserId = req.query.currentUserId;
+    // Use session userId instead of query parameter
+    const currentUserId = req.session.userId;
     
     const [users] = await pool.execute(
       'SELECT id, username, created_at, last_login FROM users WHERE id != ? ORDER BY username',
-      [currentUserId || 0]
+      [currentUserId]
     );
 
     res.json({ success: true, users });
@@ -190,9 +200,15 @@ app.get('/api/users', apiLimiter, async (req, res) => {
 });
 
 // Get chat history between two users
-app.get('/api/messages', apiLimiter, async (req, res) => {
+app.get('/api/messages', requireAuth, apiLimiter, async (req, res) => {
   try {
-    const { userId1, userId2 } = req.query;
+    const currentUserId = req.session.userId;
+    const { otherUserId } = req.query;
+
+    // Verify the current user is part of this conversation
+    if (!otherUserId) {
+      return res.status(400).json({ error: 'otherUserId is required' });
+    }
 
     const [messages] = await pool.execute(
       `SELECT m.id, m.sender_id, m.receiver_id, m.message, m.sent_at, m.is_read,
@@ -202,7 +218,7 @@ app.get('/api/messages', apiLimiter, async (req, res) => {
        JOIN users r ON m.receiver_id = r.id
        WHERE (m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)
        ORDER BY m.sent_at ASC`,
-      [userId1, userId2, userId2, userId1]
+      [currentUserId, otherUserId, otherUserId, currentUserId]
     );
 
     res.json({ success: true, messages });
@@ -232,6 +248,13 @@ io.on('connection', (socket) => {
   socket.on('private-message', async (data) => {
     try {
       const { senderId, receiverId, message } = data;
+
+      // Validate that the senderId matches the authenticated socket user
+      if (!socket.userId || socket.userId !== senderId) {
+        console.error(`Authentication mismatch: socket.userId=${socket.userId}, senderId=${senderId}`);
+        socket.emit('message-error', { error: 'Authentication error' });
+        return;
+      }
 
       // Save message to database
       const [result] = await pool.execute(

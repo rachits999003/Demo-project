@@ -260,7 +260,7 @@ async function initializeChat() {
 // User Management
 async function loadUsers() {
     try {
-        const response = await fetch(`${API_BASE}/api/users?currentUserId=${state.currentUser.id}`, {
+        const response = await fetch(`${API_BASE}/api/users`, {
             credentials: 'include'
         });
         const data = await response.json();
@@ -329,7 +329,7 @@ async function selectUser(user) {
 async function loadChatHistory() {
     try {
         const response = await fetch(
-            `${API_BASE}/api/messages?userId1=${state.currentUser.id}&userId2=${state.selectedUser.id}`,
+            `${API_BASE}/api/messages?otherUserId=${state.selectedUser.id}`,
             {
                 credentials: 'include'
             }

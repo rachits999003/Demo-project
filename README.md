@@ -75,13 +75,13 @@ DB_USER=root
 DB_PASSWORD=your_password
 DB_NAME=electron_chat
 SESSION_SECRET=your-random-secret-key-here
-ALLOWED_ORIGINS=http://localhost:*
+ALLOWED_ORIGINS=http://localhost:3000
 NODE_ENV=development
 ```
 
 **Important for Production:**
 - Set a strong, random `SESSION_SECRET`
-- Configure `ALLOWED_ORIGINS` to restrict CORS
+- Configure `ALLOWED_ORIGINS` to specific origins (comma-separated for multiple: `http://localhost:3000,https://app.example.com`)
 - Set `NODE_ENV=production` for production deployment
 
 ## Usage
